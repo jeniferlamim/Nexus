@@ -177,6 +177,7 @@ def me(p: Principal = Depends(principal), session: Session = Depends(db)):
         "role": p.role, "role_label": ROLE_LABELS[Role(p.role)], "permissions": sorted(x.value for x in p.permissions),
         "tenant": {"id": tenant.id, "name": tenant.name, "legal_name": tenant.legal_name, "segment": tenant.segment,
                    "cnpj_roots": tenant.cnpj_roots, "tax_regime": tenant.tax_regime,
+                   "ipi_taxpayer": tenant.ipi_taxpayer is not False,
                    "ledger_accounts": tenant.ledger_accounts, "data_retention_days": tenant.data_retention_days},
         "plan": {"code": tenant.plan.code, "name": tenant.plan.name, "modules": tenant.plan.modules,
                  "max_documents_month": tenant.plan.max_documents_month, "max_users": tenant.plan.max_users,

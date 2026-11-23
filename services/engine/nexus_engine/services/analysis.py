@@ -45,7 +45,8 @@ def load_input(session: Session, tenant: Tenant) -> AnalysisInput:
         access_key=r.access_key, document_number=r.document_number, entry_date=r.entry_date,
         direction=Direction(r.direction), counterparty_cnpj=r.counterparty_cnpj, item_number=r.item_number,
         cfop=r.cfop, ncm=r.ncm, amount=r.amount, icms_base=r.icms_base, icms_credit=r.icms_credit,
-        pis_credit=r.pis_credit, cofins_credit=r.cofins_credit, pis_cst=r.pis_cst, source_file=r.source_file,
+        pis_credit=r.pis_credit, cofins_credit=r.cofins_credit, ipi_credit=r.ipi_credit or ZERO, pis_cst=r.pis_cst,
+        source_file=r.source_file,
         source_row=r.source_row) for r in session.execute(
             select(BookEntryRow).where(BookEntryRow.tenant_id == tid).order_by(BookEntryRow.id)).scalars()]
     ledger = [LedgerEntry(
@@ -54,6 +55,7 @@ def load_input(session: Session, tenant: Tenant) -> AnalysisInput:
         source_row=r.source_row) for r in session.execute(
             select(LedgerEntryRow).where(LedgerEntryRow.tenant_id == tid)).scalars()]
     profile = TenantProfile(cnpj_roots=set(tenant.cnpj_roots), tax_regime=tenant.tax_regime,
+                            ipi_taxpayer=tenant.ipi_taxpayer is not False,
                             ledger_accounts=tenant.ledger_accounts or {})
     return AnalysisInput(tenant=profile, documents=docs, book=book, ledger=ledger)
 

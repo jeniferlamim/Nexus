@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from .persistence.db import Base, Membership, Plan, Tenant, User
+from .persistence.db import Base, Membership, Plan, Tenant, User, ensure_columns
 
 ALL_MODULES = ["executive_dashboard", "ingestion", "tax_reconciliation", "tax_intelligence", "credit_recovery",
                "tax_risk", "audit_trail", "tax_simulator", "supplier_intelligence", "financial_intelligence",
@@ -21,6 +21,7 @@ PLANS = [
 
 T1 = "7a1f3c52-0d4e-4b8a-9a61-2f0c5e9b1a01"
 T2 = "c3e8b9d4-5f21-4a77-8e0b-6d4a2c1f9e02"
+T3 = "9b2d6e1a-4c3f-4e8d-a7b5-1f0e3d2c4b03"
 U_DIRECTOR = "11111111-1111-4111-8111-111111111111"
 U_ANALYST = "22222222-2222-4222-8222-222222222222"
 U_AUDITOR = "33333333-3333-4333-8333-333333333333"
@@ -31,10 +32,15 @@ TENANTS = [
     dict(id=T1, name="Vértice Componentes", legal_name="Vértice Componentes Industriais S.A.",
          segment="Indústria metalmecânica · SP/MG", cnpj_roots=["45723174"], plan_code="ENTERPRISE",
          tax_regime="NON_CUMULATIVE",
-         ledger_accounts={"ICMS": ["1.1.3.01"], "PIS": ["1.1.3.02"], "COFINS": ["1.1.3.03"]}),
+         ipi_taxpayer=True,
+         ledger_accounts={"ICMS": ["1.1.3.01"], "PIS": ["1.1.3.02"], "COFINS": ["1.1.3.03"], "IPI": ["1.1.3.04"]}),
     dict(id=T2, name="Rede Aurora", legal_name="Rede Aurora Supermercados Ltda",
          segment="Varejo alimentar · 4 UFs", cnpj_roots=["31954862"], plan_code="PROFESSIONAL",
-         tax_regime="NON_CUMULATIVE", ledger_accounts={}),
+         tax_regime="NON_CUMULATIVE", ledger_accounts={}, ipi_taxpayer=False),
+    dict(id=T3, name="Novaterra Plásticos", legal_name="Novaterra Plásticos Técnicos S.A.",
+         segment="Transformação de plásticos · SP/PR", cnpj_roots=["52817390"], plan_code="ENTERPRISE",
+         tax_regime="NON_CUMULATIVE", ipi_taxpayer=True,
+         ledger_accounts={"ICMS": ["1.1.3.01"], "PIS": ["1.1.3.02"], "COFINS": ["1.1.3.03"], "IPI": ["1.1.3.04"]}),
 ]
 
 USERS = [
@@ -48,16 +54,23 @@ USERS = [
 MEMBERSHIPS = [
     (T1, U_DIRECTOR, "tax_director"), (T1, U_ANALYST, "tax_analyst"), (T1, U_AUDITOR, "auditor"),
     (T1, U_ADMIN, "admin"), (T1, U_CFO, "viewer"), (T2, U_DIRECTOR, "tax_director"), (T2, U_ADMIN, "admin"),
+    (T3, U_DIRECTOR, "tax_director"), (T3, U_ANALYST, "tax_analyst"), (T3, U_ADMIN, "admin"), (T3, U_CFO, "viewer"),
 ]
 
 
 def seed(session: Session) -> None:
     Base.metadata.create_all(session.get_bind())
+    ensure_columns(session.get_bind())
     for p in PLANS:
         session.merge(Plan(**{c.name: getattr(p, c.name) for c in Plan.__table__.columns}))
     for t in TENANTS:
-        if not session.get(Tenant, t["id"]):
+        existing_t = session.get(Tenant, t["id"])
+        if not existing_t:
             session.add(Tenant(**t))
+        elif existing_t.ipi_taxpayer is None:  # upgraded database: fill the new column
+            existing_t.ipi_taxpayer = t.get("ipi_taxpayer", True)
+            if "IPI" in t["ledger_accounts"] and "IPI" not in (existing_t.ledger_accounts or {}):
+                existing_t.ledger_accounts = {**(existing_t.ledger_accounts or {}), "IPI": t["ledger_accounts"]["IPI"]}
     for u in USERS:
         if not session.get(User, u["id"]):
             session.add(User(**u))

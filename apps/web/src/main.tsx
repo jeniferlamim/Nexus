@@ -30,7 +30,8 @@ function NotContracted() {
 }
 
 function App() {
-  const reset = useCallback(() => queryClient.clear(), []);
+  // resetQueries (not clear): drops every cached result AND refetches what is on screen with the new identity
+  const reset = useCallback(() => { void queryClient.resetQueries(); }, []);
   return (
     <QueryClientProvider client={queryClient}>
     <SessionProvider onChange={reset}>

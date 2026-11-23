@@ -10,7 +10,7 @@ import { DemoLoader } from "./Dashboard";
 
 const SOURCES = [
   { type: "NFE_XML", icon: FileCode2, title: "NF-e", formats: ".xml ou .zip", accept: ".xml,.zip", desc: "XMLs de entrada e saída (layout 4.00, inclusive grupo IBS/CBS)" },
-  { type: "FISCAL_BOOK", icon: FileSpreadsheet, title: "Escrituração fiscal", formats: ".csv ou .xlsx", accept: ".csv,.txt,.xlsx", desc: "Livro de entradas/saídas por item (export do ERP / EFD)" },
+  { type: "FISCAL_BOOK", icon: FileSpreadsheet, title: "Escrituração fiscal", formats: ".csv ou .xlsx", accept: ".csv,.txt,.xlsx", desc: "Livro de entradas/saídas por item, com ICMS, IPI, PIS e COFINS creditados (export do ERP)" },
   { type: "LEDGER", icon: Landmark, title: "Razão contábil", formats: ".csv ou .xlsx", accept: ".csv,.txt,.xlsx", desc: "Lançamentos das contas de tributos a recuperar" },
 ] as const;
 

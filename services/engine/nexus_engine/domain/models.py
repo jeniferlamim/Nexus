@@ -165,6 +165,7 @@ class BookEntry:
     pis_credit: Decimal
     cofins_credit: Decimal
     pis_cst: str = ""
+    ipi_credit: Decimal = ZERO
     source_file: str = ""
     source_row: int = 0
 

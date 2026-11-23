@@ -28,6 +28,9 @@ FIXED_ASSET_CFOPS = ["1551", "2551"]
 USE_CONSUMPTION_CFOPS = ["1556", "2556"]
 PIS_COFINS_CREDIT_CFOPS = ["1101", "1102", "2101", "2102"]
 PIS_COFINS_CREDIT_CSTS = ["50", "51", "52", "53", "54", "55", "56"]
+# Compra para industrialização (inclusive importação e remessa direta ao industrializador).
+# Revenda (x102), uso e consumo (x556) e ativo (x551) ficam fora: em regra não geram crédito básico de IPI.
+IPI_CREDIT_CFOPS = ["1101", "2101", "3101", "1122", "2122"]
 
 
 @dataclass(frozen=True)
@@ -170,6 +173,18 @@ RULES: list[RuleVersion] = [
          "credit_csts": PIS_COFINS_CREDIT_CSTS, "exclude_icms_from_base": True},
         change_note="Exclusão do ICMS destacado da base de cálculo do crédito (a partir de 05/2023).",
     ),
+    RuleVersion(
+        "NX-CRD-004", 1, "IPI destacado não creditado", C.CREDIT_OPPORTUNITY, D(2006, 4, 1), OPEN_END,
+        "Aplicável a tenants contribuintes do IPI (estabelecimento industrial). Para itens de entrada com "
+        "CFOP de compra para industrialização, estimativa = IPI destacado no XML − IPI creditado na "
+        "escrituração. Usa o valor impresso no documento; nenhuma alíquota da TIPI é presumida. Não "
+        "verifica se o item é matéria-prima, produto intermediário ou material de embalagem, nem hipóteses "
+        "de estorno (ex.: emprego em produto isento ou não tributado).",
+        "Decreto 7.212/2010 (RIPI), art. 226, I (créditos básicos de MP, PI e ME); não cumulatividade do IPI "
+        "(CF, art. 153, § 3º, II).",
+        "RECOMMENDED",
+        {"eligible_cfops": IPI_CREDIT_CFOPS, "min_amount": "1.00"},
+    ),
     # ------------------------------------------------------------------ classification
     RuleVersion(
         "NX-CLS-001", 1, "CFOP de entrada incompatível com a operação", C.CLASSIFICATION,
@@ -211,6 +226,13 @@ RULES: list[RuleVersion] = [
         D(2006, 4, 1), OPEN_END,
         "Documento com situação diferente de autorizada (cStat ≠ 100/150) escriturado com crédito.",
         "LC 87/1996, art. 23 (idoneidade documental).", "NOT_REQUIRED",
+    ),
+    RuleVersion(
+        "NX-RSK-004", 1, "Crédito de IPI escriturado maior que o destacado", C.COMPLIANCE_RISK,
+        D(2006, 4, 1), OPEN_END,
+        "Crédito de IPI escriturado por item acima do IPI destacado no XML. Exposição = excesso.",
+        "Decreto 7.212/2010 (RIPI): crédito limitado ao imposto destacado em documento idôneo.",
+        "NOT_REQUIRED", {"abs_tolerance": "0.05"},
     ),
     # ------------------------------------------------------------------ anomaly
     RuleVersion(

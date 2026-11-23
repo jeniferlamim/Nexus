@@ -12,6 +12,7 @@ from .generator import generate
 PROFILES = {
     "45723174": dict(seed=7, tenant_name="Vértice Componentes Industriais S.A.", docs_per_month=70),
     "31954862": dict(seed=11, tenant_name="Rede Aurora Supermercados Ltda", docs_per_month=40),
+    "52817390": dict(seed=13, tenant_name="Novaterra Plásticos Técnicos S.A.", docs_per_month=70, sector="plasticos"),
 }
 
 

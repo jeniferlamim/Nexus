@@ -18,7 +18,7 @@ evidência, regra versionada, nível de confiança e aprovação humana.
 apps/web            React 18 + TypeScript + Tailwind · 9 telas, tema escuro enterprise, responsivo
 services/engine     Python · FastAPI · SQLAlchemy (SQLite local / PostgreSQL em produção)
   ingestion/        parsers NF-e XML/ZIP (defusedxml), CSV e XLSX; validadores CNPJ, chave (DV), CFOP, NCM
-  rules/            catálogo de 21 versões de regras com vigência temporal (+ sync para SQL)
+  rules/            catálogo de 23 versões de regras com vigência temporal (+ sync para SQL)
   analysis/         motor determinístico: conciliação, créditos, classificação, risco, anomalias, Reforma
   services/         pipeline de 8 estágios, execução de análise, workflow de revisão, read models
   audit/            trilha append-only encadeada por SHA-256
@@ -45,7 +45,8 @@ supabase/
 | NX-CRD-001 | ICMS destacado não creditado (CFOP elegível) | recuperação estimada |
 | NX-CRD-002 | ICMS de ativo (CIAP) — só parcelas 1/48 já transcorridas | recuperação estimada |
 | NX-CRD-003 v1/v2 | PIS/COFINS não cumulativo; v2 exclui ICMS da base (05/2023), extinta em 12/2026 | recuperação estimada |
-| NX-RSK-001/002/003 | Crédito acima do destacado, duplicidade, documento não autorizado | exposição |
+| NX-CRD-004 | IPI destacado não creditado em compras para industrialização (contribuintes do IPI) | recuperação estimada |
+| NX-RSK-001/002/003/004 | Crédito de ICMS acima do destacado, duplicidade, documento não autorizado, crédito de IPI acima do destacado | exposição |
 | NX-CLS-001/002/003 | CFOP incompatível com UFs, NCM divergente, mesmo produto com NCMs distintos | — |
 | NX-DQ-001/002 | Chave inconsistente com emitente, CNPJ inválido | — |
 | NX-ANM-001 | Alíquota efetiva atípica por NCM (mediana/MAD, desvio mínimo 0,5 p.p.) | — |
@@ -99,6 +100,10 @@ PGHOST=localhost PGPORT=5432 PGUSER=postgres make test-db
 6. **Regras fiscais** — NX-CRD-003 v1 → v2: a mesma análise aplica versões diferentes conforme a data do documento.
 7. **Audit Trail** — como *Paulo (Auditor)*: verificar integridade da cadeia.
 8. **Isolamento** — trocar para *Rede Aurora* (outro tenant, plano Professional): nenhum dado da Vértice visível.
+
+**Empresas de demonstração (fictícias):** *Vértice Componentes* (metalmecânica, SP/MG), *Novaterra Plásticos*
+(transformação de plásticos, SP/PR — resinas, masterbatch, injetoras e moldes, com IPI) e *Rede Aurora*
+(varejo, sem dados — use para mostrar o isolamento). Em cada uma, use **Carregar dataset de demonstração**.
 
 ## Segurança e governança
 

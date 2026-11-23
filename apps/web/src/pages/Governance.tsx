@@ -157,6 +157,7 @@ export function Settings() {
           <dl className="space-y-2 text-xs">
             {[["Razão social", me.tenant.legal_name], ["Segmento", me.tenant.segment], ["Raízes de CNPJ", me.tenant.cnpj_roots.join(", ")],
               ["Regime PIS/COFINS", me.tenant.tax_regime === "NON_CUMULATIVE" ? "Não cumulativo (Lucro Real)" : "Cumulativo"],
+              ["Contribuinte do IPI", me.tenant.ipi_taxpayer ? "Sim (estabelecimento industrial)" : "Não"],
               ["Retenção de dados", `${me.tenant.data_retention_days} dias`],
               ["Contas de tributos a recuperar", Object.entries(me.tenant.ledger_accounts).map(([t, a]) => `${t}: ${a.join(", ")}`).join(" · ") || "não mapeadas"]].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-4 border-b border-ink-700 pb-2 last:border-0"><dt className="text-fg-3">{k}</dt><dd className="text-right text-fg">{v}</dd></div>

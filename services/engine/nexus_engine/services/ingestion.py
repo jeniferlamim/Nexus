@@ -216,7 +216,7 @@ def _process(session: Session, principal: Principal, batch: IngestionBatch, cont
             entry_date=e.entry_date, period=e.period, direction=e.direction.value,
             counterparty_cnpj=e.counterparty_cnpj, item_number=e.item_number, cfop=e.cfop, ncm=e.ncm,
             amount=e.amount, icms_base=e.icms_base, icms_credit=e.icms_credit, pis_credit=e.pis_credit,
-            cofins_credit=e.cofins_credit, pis_cst=e.pis_cst[:3], source_file=e.source_file,
+            cofins_credit=e.cofins_credit, ipi_credit=e.ipi_credit, pis_cst=e.pis_cst[:3], source_file=e.source_file,
             source_row=e.source_row) for e in records])
         detail = f"{len(records)} lançamentos gravados · {replaced} substituídos nos mesmos períodos"
     else:

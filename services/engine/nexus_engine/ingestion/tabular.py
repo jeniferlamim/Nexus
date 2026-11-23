@@ -40,6 +40,7 @@ BOOK_COLUMNS: dict[str, tuple[list[str], bool]] = {
     "pis_credit": (["vl_pis", "pis", "pis_creditado"], False),
     "cofins_credit": (["vl_cofins", "cofins", "cofins_creditado"], False),
     "pis_cst": (["cst_pis"], False),
+    "ipi_credit": (["vl_ipi", "ipi", "ipi_creditado"], False),
 }
 
 LEDGER_COLUMNS: dict[str, tuple[list[str], bool]] = {
@@ -173,6 +174,7 @@ def parse_fiscal_book(filename: str, content: bytes) -> tuple[list[BookEntry], l
         icms = pf(row_errors, row_no, row, "icms_credit", money, default=money(0))
         pis = pf(row_errors, row_no, row, "pis_credit", money, default=money(0))
         cofins = pf(row_errors, row_no, row, "cofins_credit", money, default=money(0))
+        ipi = pf(row_errors, row_no, row, "ipi_credit", money, default=money(0))
         errors.extend(row_errors)
         if any(e.severity == ErrorSeverity.BLOCKING for e in row_errors):
             continue
@@ -180,7 +182,7 @@ def parse_fiscal_book(filename: str, content: bytes) -> tuple[list[BookEntry], l
             access_key=key, document_number=get(row, "document_number"), entry_date=entry_date,
             direction=direction, counterparty_cnpj=cnpj, item_number=item_number, cfop=cfop,
             ncm=only_digits(ncm), amount=amount, icms_base=icms_base, icms_credit=icms,
-            pis_credit=pis, cofins_credit=cofins, pis_cst=get(row, "pis_cst"),
+            pis_credit=pis, cofins_credit=cofins, pis_cst=get(row, "pis_cst"), ipi_credit=ipi,
             source_file=filename, source_row=row_no,
         ))
     return out, errors, total

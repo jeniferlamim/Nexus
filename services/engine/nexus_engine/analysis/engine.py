@@ -34,6 +34,7 @@ class TenantProfile:
     cnpj_roots: set[str]                       # 8-digit CNPJ roots of the tenant's establishments
     tax_regime: str = "NON_CUMULATIVE"         # PIS/COFINS: NON_CUMULATIVE | CUMULATIVE
     ledger_accounts: dict[str, list[str]] = field(default_factory=dict)  # tax -> accounts
+    ipi_taxpayer: bool = True                  # industrial establishment (contribuinte do IPI)
 
 
 @dataclass
@@ -282,8 +283,8 @@ class AnalysisEngine:
             acc: dict[str, _DocAccumulator] = defaultdict(_DocAccumulator)
             rules: dict[str, RuleVersion | None] = {
                 c: self._rule(c, d.issue_date) for c in
-                ("NX-REC-004", "NX-REC-005", "NX-CRD-001", "NX-CRD-002", "NX-CRD-003", "NX-RSK-001",
-                 "NX-RSK-003", "NX-CLS-001", "NX-CLS-002")
+                ("NX-REC-004", "NX-REC-005", "NX-CRD-001", "NX-CRD-002", "NX-CRD-003", "NX-CRD-004",
+                 "NX-RSK-001", "NX-RSK-003", "NX-RSK-004", "NX-CLS-001", "NX-CLS-002")
             }
             for it in d.items:
                 entries = book_idx.get((d.access_key, it.item_number))
@@ -366,6 +367,26 @@ class AnalysisEngine:
                     a.items.append(it.item_number)
                     a.evidence += [self._xml_ev(d, "protNFe/cStat", d.status),
                                    self._book_ev(e, "vl_icms", brl(credited), "0,00")]
+                # IPI
+                ipi_hl, ipi_cr = it.ipi_amount, e.ipi_credit
+                r = rules["NX-RSK-004"]
+                if r and ipi_cr - ipi_hl > Decimal(r.parameters["abs_tolerance"]):
+                    a = acc["NX-RSK-004"]
+                    a.amount += ipi_cr - ipi_hl
+                    a.items.append(it.item_number)
+                    a.evidence += [self._xml_ev(d, "det/IPI/vIPI", brl(ipi_hl), locator=it.xpath),
+                                   self._book_ev(e, "vl_ipi", brl(ipi_cr), f"≤ {brl(ipi_hl)}")]
+                elif (r := rules["NX-CRD-004"]) and self.tenant.ipi_taxpayer \
+                        and e.cfop in r.parameters["eligible_cfops"] \
+                        and ipi_hl - ipi_cr >= Decimal(r.parameters["min_amount"]):
+                    a = acc["NX-CRD-004"]
+                    a.partial = a.partial or ipi_cr > 0
+                    a.amount += ipi_hl - ipi_cr
+                    a.items.append(it.item_number)
+                    a.calc[f"Item {it.item_number}"] = (
+                        f"{brl(ipi_hl)} destacado − {brl(ipi_cr)} creditado = {brl(ipi_hl - ipi_cr)}")
+                    a.evidence += [self._xml_ev(d, "det/IPI/vIPI", brl(ipi_hl), locator=it.xpath),
+                                   self._book_ev(e, "cfop / vl_ipi", f"{e.cfop} / {brl(ipi_cr)}", brl(ipi_hl))]
                 # PIS/COFINS
                 r = rules["NX-CRD-003"]
                 if r and self.tenant.tax_regime == "NON_CUMULATIVE" \
@@ -444,6 +465,22 @@ class AnalysisEngine:
                            confidence=0.7 if partial else 0.75,
                            amount_type=AmountType.RECOVERABLE_ESTIMATE, amount=a.amount, tax="ICMS",
                            evidence=ev, calculation=calc, **common)
+            elif code == "NX-CRD-004":
+                self._emit(r, kind=FindingKind.ESTIMATE, severity=severity_by_amount(a.amount),
+                           title=f"Possível crédito de IPI não aproveitado — NF-e {d.number}",
+                           description=f"{d.issuer_name}: IPI destacado em compras para industrialização não foi "
+                                       f"creditado{' integralmente' if a.partial else ''} (itens {items(a)}). "
+                                       "Confirmar se os itens são matéria-prima, produto intermediário ou "
+                                       "material de embalagem e se há hipótese de estorno.",
+                           confidence=0.65 if a.partial else 0.7,
+                           amount_type=AmountType.RECOVERABLE_ESTIMATE, amount=a.amount, tax="IPI",
+                           evidence=ev, calculation=calc, **common)
+            elif code == "NX-RSK-004":
+                self._emit(r, kind=FindingKind.ALERT, severity=Severity.CRITICAL,
+                           title=f"NF-e {d.number}: crédito de IPI acima do destacado",
+                           description=f"Crédito de IPI escriturado excede o destacado nos itens {items(a)}.",
+                           confidence=0.9, amount_type=AmountType.EXPOSURE_ESTIMATE, amount=a.amount, tax="IPI",
+                           evidence=ev, calculation={"Excesso de crédito": brl(a.amount)}, **common)
             elif code == "NX-CRD-002":
                 self._emit(r, kind=FindingKind.ESTIMATE, severity=severity_by_amount(a.amount),
                            title=f"ICMS de ativo imobilizado sem crédito (CIAP) — NF-e {d.number}",
@@ -472,14 +509,15 @@ class AnalysisEngine:
             if not rule:
                 continue
             extra = entries[1:]
-            exposure = sum((e.icms_credit + e.pis_credit + e.cofins_credit for e in extra), ZERO)
+            exposure = sum((e.icms_credit + e.pis_credit + e.cofins_credit + e.ipi_credit for e in extra), ZERO)
             self._emit(
                 rule, kind=FindingKind.ALERT, severity=Severity.CRITICAL if exposure > 0 else Severity.MEDIUM,
                 title=f"Item {item} escriturado {len(entries)}× — doc. {entries[0].document_number or key[25:34]}",
                 description="O mesmo item do mesmo documento aparece mais de uma vez na escrituração; "
                             "créditos das ocorrências excedentes são indevidos.",
                 confidence=0.95, amount_type=AmountType.EXPOSURE_ESTIMATE, amount=exposure,
-                tax="ICMS/PIS/COFINS", access_key=key, counterparty=entries[0].counterparty_cnpj,
+                tax="ICMS/PIS/COFINS/IPI" if any(e.ipi_credit for e in extra) else "ICMS/PIS/COFINS",
+                access_key=key, counterparty=entries[0].counterparty_cnpj,
                 period=entries[0].period, discriminator=str(item),
                 evidence=[self._book_ev(e, "chave+item", f"{key[-10:]}…/{item}") for e in entries],
                 calculation={"Exposição": f"créditos das {len(extra)} ocorrência(s) excedente(s) = {brl(exposure)}"},
@@ -496,6 +534,7 @@ class AnalysisEngine:
             book_tot[(e.period, "ICMS")] += e.icms_credit
             book_tot[(e.period, "PIS")] += e.pis_credit
             book_tot[(e.period, "COFINS")] += e.cofins_credit
+            book_tot[(e.period, "IPI")] += e.ipi_credit
         ledger_tot: dict[tuple[str, str], Decimal] = defaultdict(lambda: ZERO)
         ledger_rows: dict[tuple[str, str], int] = defaultdict(int)
         acct_to_tax = {a: t for t, accts in self.tenant.ledger_accounts.items() for a in accts}
@@ -505,7 +544,9 @@ class AnalysisEngine:
                 ledger_tot[(e.period, tax)] += e.debit
                 ledger_rows[(e.period, tax)] += 1
         for period in sorted({p for p, _ in book_tot} & ledger_periods):
-            for tax in ("ICMS", "PIS", "COFINS"):
+            for tax in ("ICMS", "PIS", "COFINS", "IPI"):
+                if not self.tenant.ledger_accounts.get(tax):
+                    continue  # tax not mapped to a ledger account: nothing to compare against
                 b, l_ = book_tot[(period, tax)], ledger_tot[(period, tax)]
                 year, month = map(int, period.split("-"))
                 from datetime import date as _d

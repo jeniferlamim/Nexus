@@ -114,7 +114,8 @@ def reconciliation(session: Session, tenant_id: str) -> dict:
                                   FiscalDocumentRow.total_amount, FiscalDocumentRow.icms_total)
                            .where(FiscalDocumentRow.tenant_id == tenant_id)).all()
     book = session.execute(select(BookEntryRow.access_key, BookEntryRow.period, BookEntryRow.direction,
-                                  BookEntryRow.icms_credit, BookEntryRow.pis_credit, BookEntryRow.cofins_credit)
+                                  BookEntryRow.icms_credit, BookEntryRow.pis_credit, BookEntryRow.cofins_credit,
+                                  BookEntryRow.ipi_credit)
                            .where(BookEntryRow.tenant_id == tenant_id)).all()
     book_keys = {b.access_key for b in book}
     xml_keys = {d.access_key for d in docs}
@@ -143,6 +144,8 @@ def reconciliation(session: Session, tenant_id: str) -> dict:
             totals[(b.period, "ICMS")] += b.icms_credit
             totals[(b.period, "PIS")] += b.pis_credit
             totals[(b.period, "COFINS")] += b.cofins_credit
+            if b.ipi_credit:
+                totals[(b.period, "IPI")] += b.ipi_credit
     acct = {a: t for t, accts in (tenant.ledger_accounts or {}).items() for a in accts}
     led: dict[tuple[str, str], Decimal] = defaultdict(lambda: ZERO)
     for l_ in session.execute(select(LedgerEntryRow.period, LedgerEntryRow.account, LedgerEntryRow.debit)

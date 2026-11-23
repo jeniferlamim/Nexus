@@ -55,7 +55,7 @@ export function GroupedBars({ data, series, height = 240 }: {
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
-  const pad = { l: 72, r: 8, t: 12, b: 26 };
+  const pad = { l: 92, r: 8, t: 12, b: 26 };
   const iw = width - pad.l - pad.r;
   const ih = height - pad.t - pad.b;
   const max = niceMax(Math.max(1, ...data.flatMap((d) => series.map((s) => toNum(d[s.key] as string)))));

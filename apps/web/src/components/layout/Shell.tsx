@@ -159,7 +159,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-ink-600 bg-ink-900/80 px-4 backdrop-blur">
+        <header className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-ink-600 bg-ink-900/80 px-4 backdrop-blur">
           <div className="flex min-w-0 items-center gap-3">
             <button className="rounded p-1 text-fg-2 hover:bg-ink-700 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu"><Menu className="h-5 w-5" /></button>
             <div className="min-w-0">

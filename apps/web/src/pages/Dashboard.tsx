@@ -27,6 +27,7 @@ export function DemoLoader({ compactMode = false }: { compactMode?: boolean }) {
         <Database className="h-4 w-4" />Carregar dataset de demonstração
       </Button>
       {m.isSuccess && <p className="text-xs text-fg-3">Processando pelo pipeline completo (8 estágios)…</p>}
+      {!compactMode && <p className="text-2xs text-fg-4">Empresas, notas e alíquotas do dataset de demonstração são fictícias.</p>}
       {m.error && <ErrorBox error={m.error} />}
     </div>
   );

@@ -122,4 +122,17 @@ def test_sort_by_amount_is_numeric_and_severity_is_ranked(client, loaded):
 
 def test_multi_tenant_user_must_choose_tenant(client):
     assert client.get("/api/me", headers={"X-Nexus-User": U_DIRECTOR}).status_code == 400
-    assert client.get("/api/me", headers={"X-Nexus-User": U_ANALYST}).status_code == 200  # single membership
+    assert client.get("/api/me", headers={"X-Nexus-User": U_AUDITOR}).status_code == 200  # single membership
+
+
+def test_plastics_demo_tenant_through_real_pipeline(client):
+    from nexus_engine.seed import T3
+    assert client.post("/api/demo/load", headers=H(U_ANALYST, T3)).status_code == 202
+    d = client.get("/api/dashboard", headers=H(U_DIRECTOR, T3)).json()
+    assert d["coverage"]["documents"] > 500
+    assert any(t["tax"] == "IPI" and float(t["recoverable"]) > 0 for t in d["by_tax"])
+    ipi = client.get("/api/findings?tax=IPI&amount_type=RECOVERABLE_ESTIMATE", headers=H(U_DIRECTOR, T3)).json()
+    assert ipi["total"] == 10 and all(i["rule_code"] == "NX-CRD-004" for i in ipi["items"])
+    # nothing leaks into the metalworking tenant
+    t1 = client.get("/api/findings?q=Novaterra", headers=H(U_DIRECTOR, T1)).json()
+    assert t1["total"] == 0

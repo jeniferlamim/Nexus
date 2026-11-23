@@ -75,6 +75,7 @@ class Tenant(Base):
     cnpj_roots: Mapped[list] = mapped_column(JSON)
     plan_code: Mapped[str] = mapped_column(ForeignKey("plans.code"))
     tax_regime: Mapped[str] = mapped_column(String(32), default="NON_CUMULATIVE")
+    ipi_taxpayer: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=True)
     ledger_accounts: Mapped[dict] = mapped_column(JSON, default=dict)
     data_retention_days: Mapped[int] = mapped_column(Integer, default=1825)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
@@ -208,6 +209,7 @@ class BookEntryRow(TenantScoped, Base):
     icms_credit: Mapped[Decimal] = mapped_column(Money)
     pis_credit: Mapped[Decimal] = mapped_column(Money)
     cofins_credit: Mapped[Decimal] = mapped_column(Money)
+    ipi_credit: Mapped[Decimal | None] = mapped_column(Money, nullable=True, default=Decimal(0))
     pis_cst: Mapped[str] = mapped_column(String(3))
     source_file: Mapped[str] = mapped_column(String(255))
     source_row: Mapped[int] = mapped_column(Integer)
@@ -359,3 +361,27 @@ def make_engine(url: str | None = None):
 
 def make_session_factory(engine):
     return sessionmaker(bind=engine, expire_on_commit=False, future=True)
+
+
+def ensure_columns(engine) -> list[str]:
+    """Local/SQLite upgrade path: add columns introduced after a database was first created.
+
+    Only additive, nullable columns are handled here. Production (Supabase) uses the versioned SQL
+    migrations in supabase/migrations instead.
+    """
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    added: list[str] = []
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            if not insp.has_table(table.name):
+                continue
+            existing = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing or not col.nullable:
+                    continue
+                ddl_type = col.type.compile(dialect=engine.dialect)
+                conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {ddl_type}'))
+                added.append(f"{table.name}.{col.name}")
+    return added

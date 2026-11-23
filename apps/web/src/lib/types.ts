@@ -8,7 +8,7 @@ export interface Me {
   role: string;
   role_label: string;
   permissions: string[];
-  tenant: { id: string; name: string; legal_name: string; segment: string; cnpj_roots: string[]; tax_regime: string;
+  tenant: { id: string; name: string; legal_name: string; segment: string; cnpj_roots: string[]; tax_regime: string; ipi_taxpayer: boolean;
             ledger_accounts: Record<string, string[]>; data_retention_days: number };
   plan: { code: string; name: string; modules: string[]; max_documents_month: number; max_users: number; max_file_mb: number };
   tenants: { id: string; name: string; role: string }[];

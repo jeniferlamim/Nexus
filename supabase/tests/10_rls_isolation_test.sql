@@ -16,7 +16,7 @@ insert into nexus.tax_rules (code, version, name, category, valid_from, methodol
 values ('NX-T-001', 1, 't', 'RECONCILIATION', '2020-01-01', 'm', 'l', 'NOT_REQUIRED');
 
 -- engine writes data for tenant A, then for tenant B, each inside its own declared tenant context
-create role engine_login login in role nexus_engine;
+do $$ begin if not exists (select 1 from pg_roles where rolname = 'engine_login') then create role engine_login login in role nexus_engine; end if; end $$;
 set role engine_login;
 begin;
 select set_config('nexus.service_tenant', 'aaaaaaaa-0000-0000-0000-000000000000', true);

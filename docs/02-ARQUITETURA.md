@@ -41,9 +41,12 @@
 
 ## 2. Multi-tenancy e segurança
 
-- **Isolamento em profundidade**: (1) todo acesso a dados passa por `TenantScopedRepository`,
-  que exige `tenant_id` do contexto autenticado; (2) no PostgreSQL, todas as tabelas de negócio têm
-  RLS `tenant_id = nexus.current_tenant_id()` com vínculo à tabela `memberships`.
+- **Isolamento em profundidade**: (1) na API, toda consulta filtra pelo `tenant_id` do `Principal`
+  autenticado, e um usuário com mais de uma empresa precisa declarar a empresa explicitamente;
+  (2) no PostgreSQL, todas as tabelas de negócio têm RLS forçado via `nexus.is_member(tenant_id)`
+  (vínculo em `memberships`). O motor conecta com o papel `nexus_engine`, **sem** `BYPASSRLS`, e
+  declara o tenant por transação (`set_config('nexus.service_tenant', …, true)`): mesmo um bug no
+  backend não consegue ler ou gravar dados de outra empresa. Verificado em `supabase/tests`.
 - **RBAC** (`security/rbac.py` e `supabase/migrations/0001`):
 
 | Permissão | admin | tax_director | tax_analyst | auditor | viewer |
@@ -62,8 +65,8 @@
 
 ## 3. Pipeline de ingestão (8 estágios)
 
-`UPLOADED → VALIDATED → NORMALIZED → STORED → ANALYZED → RECONCILED → REPORTED → COMPLETED`
-(ou `FAILED` com motivo). Cada estágio grava timestamp, contadores e erros por linha
+`UPLOAD → VALIDATION → ERROR_IDENTIFICATION → NORMALIZATION → STORAGE → ANALYSIS →
+DIVERGENCE_DETECTION → REPORTING` (status do lote: `COMPLETED`, `COMPLETED_WITH_WARNINGS` ou `FAILED` com motivo). Cada estágio grava timestamp, contadores e erros por linha
 (`batch_errors`: linha/arquivo, campo, valor, mensagem, severidade). Lotes com erros bloqueantes
 não seguem para análise; avisos não bloqueiam.
 

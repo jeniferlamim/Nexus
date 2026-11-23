@@ -138,9 +138,10 @@ RULES: list[RuleVersion] = [
     RuleVersion(
         "NX-CRD-002", 1, "ICMS sobre ativo imobilizado não creditado (CIAP)", C.CREDIT_OPPORTUNITY,
         D(2006, 4, 1), OPEN_END,
-        "Entradas com CFOP de ativo imobilizado sem crédito escriturado. O valor exibido é o "
-        "crédito total potencial, apropriável em 1/48 por mês, condicionado à proporção de saídas "
-        "tributadas. Confiança baixa: depende de controle CIAP e uso do bem.",
+        "Entradas com CFOP de ativo imobilizado sem crédito escriturado. Estimativa = ICMS destacado × "
+        "parcelas de 1/48 transcorridas até a última competência analisada (saldo futuro informado à "
+        "parte). Não aplica o fator de saídas tributadas, desconhecido nos dados. Confiança baixa: "
+        "depende de controle CIAP e uso do bem.",
         "LC 87/1996, art. 20, § 5º (apropriação em 48 parcelas).", "RECOMMENDED",
         {"eligible_cfops": FIXED_ASSET_CFOPS, "installments": 48},
     ),

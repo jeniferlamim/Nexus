@@ -68,7 +68,11 @@ def resolve_principal(session: Session, *, authorization: str | None, x_user: st
     stmt = select(Membership).where(Membership.user_id == user_id)
     if x_tenant:
         stmt = stmt.where(Membership.tenant_id == x_tenant)
-    membership = session.execute(stmt.order_by(Membership.id).limit(1)).scalar_one_or_none()
+    memberships = session.execute(stmt.limit(2)).scalars().all()
+    if len(memberships) > 1:
+        # Never guess the company for a multi-tenant user: isolation must be explicit.
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Informe a empresa (cabeçalho X-Nexus-Tenant)")
+    membership = memberships[0] if memberships else None
     if membership is None:
         # Same response whether the tenant exists or not: no tenant enumeration.
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Sem acesso a esta empresa")

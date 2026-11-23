@@ -102,6 +102,9 @@ class AnalysisEngine:
         self._applied: dict[str, set[int]] = defaultdict(set)
 
         docs = self._classify_directions(data.documents)
+        # Reference date for time-apportioned credits (CIAP): the latest document analysed,
+        # never "today" — results must be reproducible from the data alone.
+        self.reference_date = max((d.issue_date for d in data.documents), default=None)
         book_idx: dict[tuple[str, int], list[BookEntry]] = defaultdict(list)
         for e in data.book:
             book_idx[(e.access_key, e.item_number)].append(e)
@@ -345,10 +348,15 @@ class AnalysisEngine:
                 elif (r := rules["NX-CRD-002"]) and e.cfop in r.parameters["eligible_cfops"] \
                         and credited == 0 and highlighted > 0:
                     a = acc["NX-CRD-002"]
-                    a.amount += highlighted
+                    n = r.parameters["installments"]
+                    ref = self.reference_date or d.issue_date
+                    elapsed = min(n, (ref.year - d.issue_date.year) * 12 + ref.month - d.issue_date.month + 1)
+                    accrued = highlighted * elapsed / n
+                    a.amount += accrued
                     a.items.append(it.item_number)
                     a.calc[f"Item {it.item_number}"] = (
-                        f"{brl(highlighted)} total → {brl(highlighted / 48)} por mês (1/48)")
+                        f"crédito total {brl(highlighted)} ÷ {n} = {brl(highlighted / n)}/mês × {elapsed} parcela(s) "
+                        f"até {ref:%m/%Y} = {brl(accrued)}; saldo futuro {brl(highlighted - accrued)}")
                     a.evidence += [self._xml_ev(d, "det/ICMS/vICMS", brl(highlighted), locator=it.xpath),
                                    self._book_ev(e, "cfop / vl_icms", f"{e.cfop} / {brl(credited)}")]
                 r = rules["NX-RSK-003"]
@@ -439,8 +447,10 @@ class AnalysisEngine:
             elif code == "NX-CRD-002":
                 self._emit(r, kind=FindingKind.ESTIMATE, severity=severity_by_amount(a.amount),
                            title=f"ICMS de ativo imobilizado sem crédito (CIAP) — NF-e {d.number}",
-                           description="Aquisição para ativo imobilizado sem crédito escriturado. Apropriação "
-                                       "em 48 parcelas mensais, proporcional às saídas tributadas.",
+                           description="Aquisição para ativo imobilizado sem crédito escriturado. O valor estimado "
+                                       "considera apenas as parcelas de 1/48 já transcorridas até a última competência "
+                                       "analisada, antes da proporção de saídas tributadas; o saldo futuro consta na "
+                                       "memória de cálculo.",
                            confidence=0.45, amount_type=AmountType.RECOVERABLE_ESTIMATE, amount=a.amount,
                            tax="ICMS", evidence=ev, calculation=calc, **common)
             elif code == "NX-CRD-003":

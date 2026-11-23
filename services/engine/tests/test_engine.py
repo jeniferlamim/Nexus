@@ -84,3 +84,11 @@ def test_fingerprints_are_stable(dataset):
     a, _ = AnalysisEngine().run(_input(dataset))
     b, _ = AnalysisEngine().run(_input(dataset))
     assert [f.fingerprint for f in a] == [f.fingerprint for f in b]
+
+
+def test_ciap_estimate_counts_only_elapsed_installments(result):
+    by_rule, _ = result
+    for f in by_rule["NX-CRD-002"]:
+        calc = " ".join(f.calculation.values())
+        assert "parcela(s)" in calc and "saldo futuro" in calc
+        assert f.confidence < 0.5

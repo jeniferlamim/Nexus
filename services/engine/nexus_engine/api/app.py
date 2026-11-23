@@ -14,7 +14,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select
+from sqlalchemy import Float, case, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from .. import __version__
@@ -97,8 +97,13 @@ def module(name: str):
 
 def _run_job(fn, *args) -> None:
     def wrapped():
-        with SessionLocal() as s:
-            fn(s, *args)
+        try:
+            with SessionLocal() as s:
+                fn(s, *args)
+        except Exception:  # noqa: BLE001 — a background failure must never be silent
+            log.exception("background job %s failed", getattr(fn, "__name__", fn))
+            if SYNC_JOBS:
+                raise
     if SYNC_JOBS:
         wrapped()
     else:
@@ -255,7 +260,9 @@ def reconciliation(p: Principal = Depends(module("tax_reconciliation")), session
     return insights.reconciliation(session, p.tenant_id)
 
 
-SORTS = {"amount": FindingRow.estimated_amount.desc(), "severity": FindingRow.severity, "recent": FindingRow.updated_at.desc(),
+SEVERITY_RANK = case({"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}, value=FindingRow.severity, else_=5)
+# money is TEXT on SQLite: cast so "amount" sorts numerically on every backend
+SORTS = {"amount": cast(FindingRow.estimated_amount, Float).desc(), "severity": SEVERITY_RANK, "recent": FindingRow.updated_at.desc(),
          "confidence": FindingRow.confidence.desc(), "seq": FindingRow.seq}
 
 

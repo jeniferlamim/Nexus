@@ -109,3 +109,17 @@ def test_plan_module_gating_and_document_limit(client, dataset):
 def test_export_xlsx(client, loaded):
     r = client.get("/api/reports/findings.xlsx", headers=H(U_AUDITOR))
     assert r.status_code == 200 and r.content[:2] == b"PK"
+
+
+def test_sort_by_amount_is_numeric_and_severity_is_ranked(client, loaded):
+    items = client.get("/api/findings?sort=amount&limit=200", headers=H(U_DIRECTOR)).json()["items"]
+    amounts = [float(i["estimated_amount"]) for i in items]
+    assert amounts == sorted(amounts, reverse=True)
+    sev = [i["severity"] for i in client.get("/api/findings?sort=severity&limit=500", headers=H(U_DIRECTOR)).json()["items"]]
+    rank = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
+    assert [rank[s] for s in sev] == sorted(rank[s] for s in sev)
+
+
+def test_multi_tenant_user_must_choose_tenant(client):
+    assert client.get("/api/me", headers={"X-Nexus-User": U_DIRECTOR}).status_code == 400
+    assert client.get("/api/me", headers={"X-Nexus-User": U_ANALYST}).status_code == 200  # single membership

@@ -99,16 +99,33 @@ def setup_frontend(rebuild: bool) -> None:
 
 
 def free_port(preferred: int) -> int:
+    """Bind test (instant on every OS; connect() to a closed port takes ~2s per try on Windows)."""
     for port in range(preferred, preferred + 20):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(("127.0.0.1", port)) != 0:
+            try:
+                s.bind(("127.0.0.1", port))
                 return port
+            except OSError:
+                print(f"    Porta {port} ocupada, tentando a próxima", flush=True)
     fail(f"Nenhuma porta livre entre {preferred} e {preferred + 19}.")
     return preferred
 
 
+def data_dir() -> Path:
+    """The SQLite database must NOT live in a synced folder (OneDrive/Dropbox lock and corrupt it)."""
+    if os.environ.get("NEXUS_DATA_DIR"):
+        return Path(os.environ["NEXUS_DATA_DIR"])
+    if IS_WIN:
+        base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    else:
+        base = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
+    d = base / "NexusTaxIntelligence"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def open_when_ready(url: str) -> None:
-    for _ in range(60):
+    for _ in range(240):
         try:
             urllib.request.urlopen(url + "/api/health", timeout=1)
             print(f"\n    NEXUS no ar: {url}\n    (Para encerrar, pressione Ctrl+C nesta janela.)\n", flush=True)
@@ -116,7 +133,8 @@ def open_when_ready(url: str) -> None:
             return
         except Exception:  # noqa: BLE001
             time.sleep(0.5)
-    print("\n    O servidor está demorando para responder; veja as mensagens acima.", flush=True)
+    print(f"\n    O servidor está demorando para responder. Tente abrir {url} no navegador;"
+          "\n    se não abrir, copie as mensagens desta janela.", flush=True)
 
 
 def main() -> None:
@@ -132,11 +150,14 @@ def main() -> None:
     check_python()
     setup_backend()
     setup_frontend("--rebuild" in args)
+    info("Preparando o servidor")
     port = free_port(port)
+    data = data_dir()
+    print(f"    Banco de dados local: {data}", flush=True)
     url = f"http://localhost:{port}"
-    info(f"Iniciando o NEXUS em {url}")
+    info(f"Iniciando o NEXUS em {url} (a primeira inicialização pode levar até 1 minuto)")
     threading.Thread(target=open_when_ready, args=(url,), daemon=True).start()
-    env = dict(os.environ, AUTH_MODE="dev", PYTHONUTF8="1")
+    env = dict(os.environ, AUTH_MODE="dev", PYTHONUTF8="1", NEXUS_DATA_DIR=str(data))
     try:
         code = subprocess.call([str(VENV_PY), "-m", "uvicorn", "nexus_engine.api.app:app",
                                 "--host", "127.0.0.1", "--port", str(port)], cwd=str(ENGINE), env=env)

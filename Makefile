@@ -5,7 +5,7 @@ PY     := $(ENGINE)/.venv/bin/python
 .PHONY: setup api web dev test test-db build
 
 setup:            ## install backend + frontend dependencies
-	python3 -m venv $(ENGINE)/.venv && $(PY) -m pip install -q -r $(ENGINE)/requirements-dev.txt
+	python3 -m venv $(ENGINE)/.venv && $(PY) -m pip install -q -r $(ENGINE)/requirements-dev.txt -r $(ENGINE)/requirements-postgres.txt
 	cd $(WEB) && npm ci
 
 api:              ## run the API on :8000 (SQLite in services/engine/data, AUTH_MODE=dev)

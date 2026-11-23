@@ -53,19 +53,28 @@ supabase/
 
 ## Rodando localmente
 
-Requisitos: Python 3.12+, Node 20+.
+Requisitos: **Python 3.10+** ([python.org](https://www.python.org/downloads/) — no Windows, marque
+*Add python.exe to PATH*) e **Node.js LTS** ([nodejs.org](https://nodejs.org/), usado só para compilar a
+interface na primeira execução).
+
+**Windows:** dê dois cliques em `iniciar.bat`.
+
+**macOS / Linux** (ou qualquer sistema, no terminal, dentro da pasta do projeto):
 
 ```bash
-make setup
+python3 iniciar.py
 ```
 
-```bash
-make dev
-```
+O script cria o ambiente Python, instala as dependências, compila a interface na primeira vez e abre o
+NEXUS no navegador em **http://localhost:8000** (se a porta estiver ocupada, usa a próxima livre). Na tela
+inicial, clique em **Carregar dataset de demonstração**. Para encerrar: `Ctrl+C` na janela do terminal.
 
-Abra http://localhost:5173 → **Carregar dataset de demonstração**. O dataset (empresa fictícia, ~600 NF-e,
-~1.000 lançamentos fiscais, razão contábil) passa pelo **pipeline real**; todos os números exibidos são calculados
-pelo motor a partir dos arquivos.
+Opções: `--porta 8080` para outra porta; `--rebuild` para recompilar a interface após alterações.
+
+O dataset (empresa fictícia, ~600 NF-e, ~1.000 lançamentos fiscais, razão contábil) passa pelo **pipeline
+real**; todos os números exibidos são calculados pelo motor a partir dos arquivos.
+
+Desenvolvimento (recarga automática, API em :8000 e interface em :5173): `make setup` e depois `make dev`.
 
 Testes:
 

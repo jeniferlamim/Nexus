@@ -368,3 +368,25 @@ def audit_log(limit: int = Query(200, le=1000), p: Principal = Depends(module("a
 def audit_verify(p: Principal = Depends(module("audit_trail")), session: Session = Depends(db)):
     require(p, Permission.VIEW_AUDIT)
     return audit.verify(session, p.tenant_id)
+
+
+# --------------------------------------------------------------------------- web app (single-port mode)
+# When the frontend has been built (apps/web/dist), the API also serves it, so a local run needs
+# one process and one URL. In production the web app is served by a CDN instead.
+_WEB_DIST = os.environ.get("NEXUS_WEB_DIST") or os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "apps", "web", "dist"))
+
+if os.path.isfile(os.path.join(_WEB_DIST, "index.html")):
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/assets", StaticFiles(directory=os.path.join(_WEB_DIST, "assets")), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str):
+        if path.startswith("api/"):
+            raise HTTPException(404)
+        candidate = os.path.realpath(os.path.join(_WEB_DIST, path))
+        if path and candidate.startswith(os.path.realpath(_WEB_DIST) + os.sep) and os.path.isfile(candidate):
+            return FileResponse(candidate)
+        return FileResponse(os.path.join(_WEB_DIST, "index.html"))
